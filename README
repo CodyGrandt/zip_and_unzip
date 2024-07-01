@@ -1,0 +1,8 @@
+ZIP & UNZIP = non-binary, standard compression & uncompression
+              minimum program requirements
+./ZIP sample1 = creates a sample1.zip compressed file & deletes sample1
+./UNZIP sample1.zip = uncompress sample1.zip to sample1
+
+c++ -c huffman.cpp
+c++ zip.cpp huffman.o
+c++ unzip.cpp

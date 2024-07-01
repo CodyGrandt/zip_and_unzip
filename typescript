@@ -1,0 +1,654 @@
+Script started on Sat 11 Nov 2023 09:37:29 PM EST
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[?1034h[grandt_cl@cobra Prog3]$ cat -n zip.cpp 
+     1	#include <fstream>
+     2	#include <iostream>
+     3	#include "huffman.h"
+     4	
+     5	using namespace std;
+     6	
+     7	void displayTable ( int argumentCount , HuffmanTree tree );
+     8	void compressFile ( char* argumentArray [ ] , HuffmanTree tree );
+     9	void constructHuffmanTree ( char* argumentArray [ ] , HuffmanTree & tree );
+    10	bool decipherCommandLine ( int argumentCount , char* argumentArray [ ] );
+    11	bool decipherOneInput ( char* argumentArray [ ] );
+    12	bool decipherTwoInputs ( char* argumentArray [ ] );
+    13	string getFilename ( char* argumentArray [ ] );
+    14	void compressionRatio ( HuffmanTree tree );
+    15	void printHelpInformation ( );
+    16	void printInvalidFormat ( );
+    17	void renameFile ( char* argumentArray [ ] );
+    18	
+    19	int main ( int argumentCount , char* argumentArray [ ] ) {
+    20	
+    21		bool isCommandLineValid = decipherCommandLine ( argumentCount , argumentArray );
+    22	
+    23		if ( ! isCommandLineValid )
+    24			return 1;
+    25	
+    26		HuffmanTree tree;
+    27	
+    28		constructHuffmanTree ( argumentArray , tree );
+    29		compressFile ( argumentArray , tree );
+    30		displayTable ( argumentCount , tree );
+    31		compressionRatio ( tree );	
+    32	
+    33	return 0;
+    34	}
+    35	
+    36	void displayTable ( int argumentCount , HuffmanTree tree ) {
+    37	
+    38		//Pre:   The argument count has been passed in via parameter.
+    39		//Post:  If this method is being called, that means all conditions
+    40		//	 have been met and the arguments were valid, therefore if
+    41		//	 argumentCount = 3, that means the user requested --t
+    42		
+    43		if ( argumentCount == 3 )
+    44			tree.PrintTable();
+    45		
+    46	}
+    47	
+    48	void compressFile ( char* argumentArray [ ] , HuffmanTree tree ) {
+    49	
+    50		//Pre:   The argument array and huffman tree are passed in
+    51		//	 via parameter.
+    52		//Post:  The file has been successfully overwriten with the
+    53		// 	 compressed data and .zip extension has been added
+    54		// 	 to the file name.
+    55	
+    56	
+    57	
+    58		string filename = getFilename ( argumentArray );
+    59		
+    60		ifstream inFile ( filename.c_str() );
+    61	
+    62		string compressedData;
+    63	
+    64		while ( inFile ) {
+    65		
+    66			char currLetter = inFile.get();
+    67			compressedData += tree.GetCode ( currLetter );
+    68	
+    69		}
+    70	
+    71		ofstream outFile ( filename.c_str() );
+    72	
+    73		outFile <<  ( tree.numNodes() / 2 ) + 1 << endl;
+    74		
+    75		for ( char ch = char ( 1 ) ; ch <= char ( 126 ) ; ch++ ) {
+    76	
+    77			if ( tree.inTree ( ch ) )
+    78				outFile << ( ( int ) ch ) << " " << tree.GetCode ( ch ) << endl;
+    79	
+    80		}
+    81		
+    82		outFile << compressedData;		
+    83		renameFile ( argumentArray );
+    84	
+    85	}
+    86	
+    87	void constructHuffmanTree ( char* argumentArray [ ] , HuffmanTree & tree ) {
+    88	
+    89		//Pre:   the argumentArray as well as the huffman tree are passed in 
+    90		//	 via parameter.
+    91		//Post:  The huffman tree is successfully built using the data from the
+    92		//	 inputted file.
+    93	
+    94	
+    95		string filename = getFilename ( argumentArray );
+    96		
+    97		ifstream inFile ( filename.c_str() );
+    98	
+    99		char ch;
+   100		int characters [ 256 ];
+   101	
+   102		for ( char ch = char ( 0 ) ; ch <= char ( 126 ) ; ch++ )
+   103			characters [ ch ] = 0;
+   104	
+   105		inFile.get ( ch );
+   106		while ( inFile ) {
+   107	
+   108			characters [ ch ] += 1;
+   109			inFile.get ( ch );
+   110	
+   111		}
+   112		
+   113		for ( char ch = char ( 0 ) ; ch <= char ( 126 ) ; ch++ ) 
+   114			if ( characters [ ch ] != 0 ) 
+   115				tree.insert ( ch , characters [ ch ] );
+   116	
+   117		tree.build();
+   118	} 
+   119	
+   120	bool decipherCommandLine ( int argumentCount , char* argumentArray [ ] ) {
+   121		
+   122		//Pre:   The argumentCount representing the amount of arguments entered
+   123		//	 from the command line as well as the array that holds these
+   124		//	 arguments is passed in via parameter. 
+   125		//Post:  This program can only have one or two additional arguments
+   126		//	 entered from the command line.  If there is one additional
+   127		//	 argument, then the method to handle one argument is called.
+   128		//	 If there are two arguments, then the method to handle two
+   129		//	 arguments is called.  Any other cases of argumentCount will
+   130		//	 print a message to the user, cause this method to return a 
+   131		//	 false bool so the main method can easily exit the program.
+   132		//Note:  calling ./a.out counts as an argument in the command line, so
+   133		//	 one or two additional arguments are represented as 2 or 3 in
+   134		//	 the argumentCount.
+   135	
+   136		bool isValid;
+   137	
+   138		switch ( argumentCount ) {
+   139	
+   140			case 2 :	isValid = decipherOneInput ( argumentArray );
+   141					if ( ! isValid )
+   142					   cout << "ZIP:  file " << argumentArray[1] << " does not exist." << endl;
+   143					return isValid;
+   144					break;
+   145			
+   146			case 3 : 	return decipherTwoInputs ( argumentArray );
+   147					break;
+   148		
+   149			default : 	printInvalidFormat ( );
+   150					return false;
+   151					break;
+   152	
+   153		}
+   154	
+   155	}
+   156	
+   157	bool decipherTwoInputs ( char* argumentArray [ ] ) {
+   158	
+   159		//Pre:   The array holding the arguments from the command line is 
+   160		//	 passed in via parameter.
+   161	  	//Post:  If the first of the two arguments is anything other than
+   162	  	//	 the --t command, the method returns a false bool meaning the 
+   163	  	//	 command line input is invalid.  If the first command is --t,
+   164	  	//	 then the second one is checked to see if it is a file that 
+   165	  	//	 exists, and returns a corresponding bool.
+   166	
+   167		string firstInput = argumentArray [ 1 ];
+   168	
+   169		if ( firstInput != "--t" ) {
+   170			
+   171			printInvalidFormat ( ); 
+   172			return false;
+   173		
+   174		}
+   175		else { 
+   176			string secondInput = argumentArray [ 2 ];
+   177			ifstream file ( secondInput.c_str() );
+   178	
+   179			if ( file )
+   180				return true;
+   181		
+   182			else { 
+   183		
+   184				cout << "ZIP:  file " << secondInput << " does not exist." << endl;
+   185				return false;
+   186	
+   187			}		
+   188		}
+   189	}
+   190	
+   191	bool decipherOneInput ( char* argumentArray [ ] ) {
+   192	
+   193		//Pre:   The array holding the arguments from the command line is
+   194		//	 passed in via parameter.
+   195		//Post:  If the additional argument is --help, then the correct 
+   196		//	 information is printed to the user, and a true bool meaning
+   197		//	 this was a valid command line input is returned.  If anything
+   198		//	 other than --help is entered, then the program attempts to 
+   199		//	 begin writing to this file.  If the program can successfully
+   200		//	 write to this file, this means the file is found and a true
+   201		//	 bool is returned, otherwise a message is printed and a false 
+   202		//	 bool is returned.
+   203	
+   204	
+   205	
+   206	
+   207		string input = argumentArray [ 1 ];
+   208	
+   209		if ( input == "--help" ) {
+   210	
+   211			printHelpInformation ( ); 
+   212		}
+   213		else { 
+   214	
+   215			ifstream file ( input.c_str() );
+   216	
+   217			if ( file ) {
+   218	
+   219				return true;
+   220			}
+   221	
+   222			else {
+   223	
+   224				return false;
+   225	
+   226			}	
+   227	
+   228		}
+   229	}
+   230	
+   231	void compressionRatio ( HuffmanTree tree ) {
+   232	
+   233		int numBits = tree.numBits();
+   234		int numChars = ( tree.numNodes() / 2 ) - 1;
+   235	
+   236		double compressionRatio = ( 1 - ( ( numBits ) / ( numChars * 8 ) ) );
+   237	
+   238		int compressedBits = numBits * compressionRatio;
+   239	
+   240		cout << "File Successfully Compressed To " << numBits << " Bits (" << compressionRatio << "% less)." << endl;
+   241	
+   242	
+   243	
+   244	}
+   245	 
+   246	string getFilename ( char* argumentArray [ ] ) {
+   247	
+   248		//Pre:   The array holding the arguments from the command line is 
+   249		//	 passed in via parameter.
+   250		//Post:  This method will be called after the command line has been
+   251		//	 established as a valid command, therefore either 
+   252		//	 the method decipherOneInput or decipherTwoInputs has to be true.
+   253		//	 if decipherOneInput is true, then the filename must be the second
+   254		//	 argument in the array, otherwise it must be the third.  this method
+   255		//	 gets the correct location of the filename and returns it.
+   256	
+   257		string filename;
+   258	
+   259		if ( decipherOneInput ( argumentArray ) )
+   260			filename = argumentArray [ 1 ];
+   261		else
+   262			filename = argumentArray [ 2 ];
+   263		
+   264		return filename;
+   265	
+   266	}
+   267	
+   268	void printHelpInformation ( ) {
+   269	
+   270		//Post:  Information to help the user when the user enters the 
+   271		//	 command --help is printed.
+   272	
+   273		cout << "Usage: ZIP [OPTION]... [FILE]..." << endl;
+   274		cout << "Compress a text file using Huffman Encoding." << endl;
+   275		cout << "\n  --t              Display the Huffman encoding table." << endl;
+   276		cout << "  --help           Provide help on command." << endl;
+   277	
+   278	}
+   279	
+   280	void printInvalidFormat ( ) {
+   281	
+   282		//Post:  Information to help the user when they enter an incorrect
+   283		//	 command line argument is printed.
+   284	
+   285		cout << "ZIP: Invalid format" << endl;
+   286		cout << "Try 'ZIP --help' for more information" << endl;
+   287	
+   288	}
+   289	
+   290	void renameFile ( char* argumentArray [ ] ) {
+   291	
+   292		//Pre:   The argumentArray is passed in via parameter with the goal if 
+   293		//	 retrieving the file name with it.
+   294		//Post:  The file name is renamed to the same file name with a ".zip" 
+   295		//	 extension since the file has been zipped.  
+   296	
+   297		string currFilename = getFilename ( argumentArray );
+   298		string newFilename = currFilename + ".zip";
+   299		
+   300		rename ( currFilename.c_str() , newFilename.c_str() );
+   301	
+   302	}
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ cat huffman.h
+#include <vector>
+#include <string>
+using namespace std;
+
+struct HNode {
+    char ch;
+    int weight;
+    int parent;
+    int childType;
+};
+
+class HuffmanTree {
+    public:
+	HuffmanTree();				// constructor
+
+	void insert(char ch, int weight);	// inserts a character and its associated weight
+						// into a node of the Huffman tree
+
+	bool inTree(char ch);			// returns a boolean value indicating whether
+						// a given character is stored in the tree
+		
+	int GetFrequency(char ch);		// returns the weight of a given character
+
+
+	int numBits ( );
+
+
+	int getSmallestFreq ( vector < HNode >& temp , int size );
+
+	
+	int getSmallestLoc ( vector < HNode >& temp , int size );
+	
+	
+	void build();				// Builds the Huffman Tree;
+	
+
+	string GetCode(char ch);		// returns the compressed code of a given
+						// character in the tree using recursion
+
+	void PrintTable();			// displays the Huffman encoding table used in
+						// the compression process
+	
+	int numNodes();				// returns the number of nodes currently in Huffman 
+						// tree
+
+    private:
+	vector<HNode> nodes;
+	int numChars;
+	bool built;                             
+	
+	int lookUp(char ch);			// returns the index of a given character in tree
+	int GetFrequency(int i);		// returns the weight at a given index
+	string GetCode(int i);			// returns the compressed code of the character at 
+						// a given index
+};
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ cat huffman.cpp
+#include "huffman.h"
+#include <iostream>
+using namespace std;
+
+HuffmanTree:: HuffmanTree()
+	: numChars(0), built(false) {}
+
+void HuffmanTree:: insert(char ch, int weight) {
+
+   	HNode newNode = {ch, weight, -1, -1}; 
+    	built = false;
+   	nodes.push_back(newNode);
+   	numChars++;
+
+}
+
+bool HuffmanTree:: inTree(char ch) {
+
+	int location = lookUp ( ch );
+
+	if ( location == -1 )
+		return false;
+	else
+		return true;
+
+}
+
+int HuffmanTree:: GetFrequency(char ch) {
+
+	int location = lookUp ( ch );
+
+	if ( location == -1 )
+		return 0;
+	else
+		return GetFrequency ( location );
+
+}
+
+int HuffmanTree:: GetFrequency(int i) {
+	
+	return nodes [ i ].weight;
+
+}
+
+int HuffmanTree:: lookUp(char ch) {
+
+	for ( int count = 0 ; count < numChars ; count++ ) {
+
+		if ( nodes [ count ].ch == ch ) 
+			return count;
+
+	}
+	return -1;
+
+}
+
+string HuffmanTree:: GetCode(char ch) {
+
+	return GetCode ( lookUp ( ch ) );
+	
+}
+
+
+string HuffmanTree:: GetCode(int i) {
+
+	if ( nodes [ i ].parent == 0 )
+		return "";
+	else
+		return ( GetCode ( nodes [ i ].parent ) + 
+		 ( char ) ( nodes [ i ].childType + '0' ) );
+
+
+}
+
+void HuffmanTree:: PrintTable() {
+
+	cout << "\n\t## ENCODING TABLE FOR ZIP FILE ##\n" << endl;
+	cout << "\tIndex   Char    Weight  Parent  ChildType\n" << endl;
+	
+	int step = 1;
+	for ( int count = 0 ; count < numNodes() ; count++ ) {
+		
+		cout << "\t" << count;
+		
+		if ( nodes [ count ].ch == '\0' ) {
+			cout << "\tT" << step;
+			step++;
+		}
+		else if ( nodes [ count ].ch == '\n' )
+			cout << "\tnl";
+		else if ( nodes [ count ].ch == ' ' )
+			cout << "\tsp";
+		else 
+			cout << "\t" << nodes [ count ].ch;
+		
+	
+		cout << "\t" << GetFrequency ( count );
+		cout << "\t" << nodes [ count ].parent;
+		
+		if ( nodes [ count ].childType == -1 ) {
+			cout << "\tN/A\n";
+		}
+		else {
+			cout << "\t" << nodes [ count ].childType << "\n";
+		}
+
+	}
+		
+	cout << "\n" << endl;
+	
+}
+
+int HuffmanTree:: numNodes() {
+
+	return numChars;
+
+}
+
+int HuffmanTree:: numBits() {
+
+	int maxParent = numChars - 1 ;
+	int minParent = maxParent;
+
+	for ( int i = 0 ; i < numChars - 1  ; i++ ) 
+		if ( nodes [ i ].parent < minParent )
+			minParent = nodes [ i ].parent;
+
+	int height = maxParent - minParent;
+	int numBits = 0;
+
+	for ( int i = minParent ; i < maxParent ; i++ ) { 
+		
+		for ( int j = 0 ; j < numChars - 1 ; j++ ) {
+
+			if ( nodes [ j ].parent == i ) {
+
+				numBits += height * ( nodes [ j ].weight );
+
+			}
+
+		}
+		height--;
+
+	}
+	return numBits;
+
+}
+
+int HuffmanTree:: getSmallestFreq ( vector < HNode >& temp , int size ) {
+
+	int smallestLoc = 0;
+	while ( temp [ smallestLoc ].weight == -1 )
+		smallestLoc++;
+
+	for ( int count = 0 ; count < size ; count++ ) 
+		if ( ( temp [ count ].weight < temp [ smallestLoc ].weight ) && (temp [ count ].weight != -1 ) )
+			smallestLoc = count;
+
+	int smallestFreq = temp [ smallestLoc ].weight;
+	temp [ smallestLoc ].weight = -1; 
+
+	return smallestFreq;	
+
+}
+
+int HuffmanTree:: getSmallestLoc ( vector < HNode >& temp , int size ) {
+
+	int smallestLoc = 0;
+	while ( temp [ smallestLoc ].weight == -1 )
+		smallestLoc++;
+
+	for ( int count = 0 ; count < size ; count++ )
+		if ( ( temp [ count ].weight < temp [ smallestLoc ].weight ) && ( temp [ count ].weight != -1 ) )
+			smallestLoc = count;
+	
+	temp [ smallestLoc ].weight = -1;
+	return smallestLoc;
+
+}
+
+
+void HuffmanTree:: build() {
+
+	vector < HNode > temp = nodes;
+
+	int startingSize = numNodes();	
+	int smallestLoc = getSmallestLoc ( temp , startingSize );
+	int secondSmallestLoc = getSmallestLoc ( temp , startingSize );
+	int previousTotal = nodes [ smallestLoc ].weight + nodes [ secondSmallestLoc ].weight;
+
+	insert ( '\0' , previousTotal );
+	
+	nodes [ numChars - 1 ].parent = numChars;	
+	nodes [ smallestLoc ].parent = startingSize;
+	nodes [ smallestLoc ].childType = 1;
+	nodes [ secondSmallestLoc ].parent = startingSize;
+	nodes [ secondSmallestLoc ].childType = 0;
+	
+	for ( int count = 0 ; count < startingSize - 6 ; count++ ) {
+	
+		int currSmallestLoc = getSmallestLoc ( temp , startingSize );
+		
+		nodes [ currSmallestLoc ].childType = 1;
+		
+		insert ( '\0' , ( nodes [ currSmallestLoc ].weight + previousTotal ) );
+		
+		nodes [ startingSize + count ].childType = 0;
+		nodes [ currSmallestLoc ].parent = numChars - 1;
+		nodes [ numChars - 1 ].parent = numChars;
+		
+		previousTotal = nodes [ currSmallestLoc ].weight + previousTotal;
+
+	}
+	
+	nodes [ numChars - 1 ].childType = 0;
+
+	int currSmallestLoc = getSmallestLoc ( temp , startingSize );
+	
+	nodes [ currSmallestLoc ].childType = 1;
+	
+	insert ( '\0' , ( nodes [ currSmallestLoc ].weight + previousTotal ) );
+
+	nodes [ numChars - 1 ].parent = numChars + 1;
+	nodes [ currSmallestLoc ].parent = numChars - 1;
+	nodes [ numChars - 1 ].childType = 0;	
+
+	previousTotal = nodes [ currSmallestLoc ].weight + previousTotal;
+
+	int otherSmallestLoc = getSmallestLoc ( temp , startingSize );
+	int otherSecondSmallestLoc = getSmallestLoc ( temp , startingSize );
+	int otherTotal = ( nodes [ otherSmallestLoc ].weight ) + ( nodes [ otherSecondSmallestLoc ].weight );
+	
+	nodes [ otherSmallestLoc ].childType = 1;
+	nodes [ otherSecondSmallestLoc ].childType = 0;
+	
+	insert ( '\0' , otherTotal );
+	
+	nodes [ otherSmallestLoc ].parent = numChars - 1;
+	nodes [ otherSecondSmallestLoc ].parent = numChars - 1;
+	nodes [ numChars - 1 ].childType = 0;
+
+	int finalSmallestLoc = getSmallestLoc ( temp , startingSize );
+	insert ( '\0' , ( previousTotal + nodes [ finalSmallestLoc ].weight ) );
+ 	nodes [ finalSmallestLoc ].parent = numChars - 1;
+	nodes [ finalSmallestLoc ].childType = 1;
+	insert ( '\0' , ( previousTotal + nodes [ finalSmallestLoc ].weight + otherTotal ) );
+	
+	nodes [ numChars - 1 ].parent = 0;
+	nodes [ numChars - 2 ].parent = numChars - 1;
+	nodes [ numChars - 2 ].childType = 0;
+	nodes [ numChars - 2 ].childType = 1;
+	nodes [ numChars - 3 ].parent = numChars - 1;	
+	
+}
+
+	
+
+
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ c++ zip.cpp huffman.o
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ mv a.out myZip
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ c{{ [K[K[K++ unzip.cpp 
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ mv a.out myUnzip
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ ls
+help  huffman.cpp  huffman.h  huffman.o  letters.cpp  [0m[01;32mmyUnzip[0m  [01;32mmyZip[0m  README  sample1  sample2  sample3  sample4  typescript  [01;32mUNZIP[0m  unzip.cpp  [01;32mZIP[0m  zip.cpp
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ ./myU[KZip sample[K[K[K[K[K[K--t sample1
+
+	## ENCODING TABLE FOR ZIP FILE ##
+
+	Index   Char    Weight  Parent  ChildType
+
+	0	nl	1	7	1
+	1	sp	13	10	0
+	2	a	10	9	1
+	3	e	15	11	1
+	4	i	12	10	1
+	5	s	3	7	0
+	6	t	4	8	1
+	7	T1	4	8	0
+	8	T2	8	9	0
+	9	T3	18	11	0
+	10	T4	25	12	0
+	11	T5	33	12	1
+	12	T6	58	0	N/A
+
+
+File Successfully Compressed To 189 Bits (-3% less).
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ ./myUnzip sample1.zip
+sample1.zip
+File Successfully Inflated Back To Original.
+]0;grandt_cl@cobra:~/CSC245/Progs/Prog3[grandt_cl@cobra Prog3]$ exit
+exit
+
+Script done on Sat 11 Nov 2023 09:41:11 PM EST
